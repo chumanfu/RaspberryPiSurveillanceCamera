@@ -1,0 +1,27 @@
+{
+  "name": "rasppisurvcam",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chumanfu/RaspberryPiSurveillanceCamera.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/chumanfu/RaspberryPiSurveillanceCamera/issues"
+  },
+  "homepage": "https://github.com/chumanfu/RaspberryPiSurveillanceCamera#readme",
+  "dependencies": {
+    "commander": "^2.8.1",
+    "content-disposition": "^0.5.0",
+    "express": "^4.13.0",
+    "watch": "^0.16.0",
+    "dropbox": "^0.10.3",
+    "minimist": "^1.1.1"
+  }
+}
