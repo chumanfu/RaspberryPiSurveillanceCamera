@@ -17,9 +17,6 @@
   },
   "homepage": "https://github.com/chumanfu/RaspberryPiSurveillanceCamera#readme",
   "dependencies": {
-    "commander": "^2.8.1",
-    "content-disposition": "^0.5.0",
-    "express": "^4.13.0",
     "watch": "^0.16.0",
     "dropbox": "^0.10.3",
     "minimist": "^1.1.1"
