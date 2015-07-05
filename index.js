@@ -8,6 +8,8 @@ var FlowNoRedirect = require('./auth_driver/flow_no_redirect')
 var help = "--dropbox-key <key> --dropbox-secret <secret> --watchdir <upload>";
 var argv = require('minimist')(process.argv.slice(2));
 var watchdir = argv['watchdir'];
+var processing = false;
+var reprocess = false;
 
 if(watchdir === undefined) {
   console.log(help);
@@ -36,67 +38,169 @@ client.authenticate(function(error, client)
 		process.exit(1);
 	}
 
-	watch.watchTree(watchdir, function (f, curr, prev)
+	var fsTimeout
+
+	processDirectory(watchdir);
+
+	fs.watch(watchdir, function(event, f) 
 	{
-	    if (typeof f == "object" && prev === null && curr === null)
+	    if (!fsTimeout) 
 	    {
-	      // Finished walking the tree
-	    }
-	    else if (prev === null)
-	    {
-	      // f is a new file
-
-			console.log('NEW', f);
-
-			fs.readFile(f, function(err, data) 
+			if (f)
 			{
-				if(err !== null)
+				if (f.substr(0,1) != ".")
 				{
-					console.log("readFile - [" + new Date() + "] " + err);
-					process.exit(1);
-				} 
+					processDirectory(watchdir);
+				}
+		    }
 
-				client.writeFile(f, data, function(error, stat) 
-				{
-					if(error !== null) 
-					{
-						console.log("writeFile - [" + new Date() + "] " + error);
-					} 
-					else
-					{
-						console.log("Done");
-
-						fs.exists(f, function(exists)
-						{
-							if (exists)
-							{
-								fs.unlink(f, function(err)
-								{
-									if (err)
-									{
-										console.log('Unable to delete', f, err);
-										process.exit(1);
-									}
-									else
-									{
-										console.log('Deleted', f);
-									}
-								});
-							}
-						});
-					}    
-				});
-			});
-	    }
-	    else if (curr.nlink === 0)
-	    {
-	      // f was removed
-	      console.log('DEL', f);
-	    }
-	    else
-	    {
-	      // f was changed
-	      console.log('CHANGE', f);
-	    }
+			fsTimeout = setTimeout(function() { fsTimeout=null }, 5000) // give 5 seconds for multiple events
+		}
 	});
 });
+
+var uploadQueue = [];
+var processingQueue = false;
+
+function processQueue(force)
+{
+	if (force)
+	{
+		processingQueue = false;
+	}
+
+console.log('processingQueue', processingQueue);
+
+	if (!processingQueue)
+	{
+		processingQueue = true;
+		var obj = uploadQueue.pop();
+
+		if (obj.file)
+		{
+			client.getAccountInfo(function(err, info, pinfo)
+			{
+				if (!err)
+				{
+					var free = pinfo.quota_info.quota - pinfo.quota_info.normal;
+
+					console.log('Free Space: ', free);
+
+					var filesize = getFilesizeInBytes(obj.file);
+
+					console.log('File Size:  ', filesize);
+
+					if (filesize <= free)
+					{
+						console.log('Uploading: ', obj.file);
+
+						client.writeFile(obj.file, obj.data, function(error, stat) 
+						{
+							if (error !== null) 
+							{
+								console.log("writeFile - [" + new Date() + "] " + error);
+								
+								processQueue(true);
+							} 
+							else
+							{
+								console.log("Uploaded: ", obj.file);
+								console.log(stat);
+
+								fs.exists(obj.f, function(exists)
+								{
+									if (exists)
+									{
+										fs.unlink(obj.f, function(err)
+										{
+											if (err)
+											{
+												console.log('Unable to delete: ', obj.f, err);
+												process.exit(1);
+											}
+											else
+											{
+												console.log('Deleted: ', obj.f);
+												processQueue(true);
+											}
+										});
+									}
+								});
+							}    
+						});
+					}
+					else
+					{
+						console.log('No Dropbox Space Left');
+						process.exit(1);
+					}
+				}
+				else
+				{
+					console.log('Dropbox error: ', err);
+					processQueue(true);
+				}
+			});
+		}
+		else
+		{
+			processQueue(true);
+		}
+
+	}
+
+}
+
+function processDirectory(dir, callback)
+{
+
+	if (processing) return false;
+
+	var files = fs.readdirSync(dir);
+	var filecount = -1;
+
+	if (files)
+	{
+		// while (files)
+		// {
+			processing = true;
+
+			files.forEach(function(f) 
+			{
+				console.log('found file: ', f);
+				if (f.substr(0,1) == ".") return;
+
+				f = dir + f;
+
+				fs.readFile(f, function(err, data) 
+				{
+					if(err !== null)
+					{
+						console.log("readFile - [" + new Date() + "] " + err);
+						process.exit(1);
+					}
+
+					console.log('Pushing file on to queue: ', f);
+					uploadQueue.push({file: f, data: data});
+					processQueue();
+
+				});
+			});
+
+			// console.log('Reading directory again');
+			// files = fs.readdirSync(dir);
+		// }
+
+	}
+
+	processing = false;
+
+	return true;
+}
+
+function getFilesizeInBytes(filename)
+{
+	var stats = fs.statSync(filename)
+	var fileSizeInBytes = stats["size"]
+	return fileSizeInBytes
+}
