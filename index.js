@@ -15,14 +15,14 @@ var reprocess = false;
 var processingFiles = [];
 
 if(watchdir === undefined) {
-  console.log(help);
-  console.log("Error: Set directory to watch");
+  debug(help);
+  debug("Error: Set directory to watch");
   process.exit(1);
 }
 
 if(argv['dropbox-key'] === undefined || argv['dropbox-secret'] === undefined) {
-  console.log(help);
-  console.log("Error: Set dropbox application details");
+  debug(help);
+  debug("Error: Set dropbox application details");
   process.exit(1);
 }
 
@@ -37,7 +37,7 @@ client.authenticate(function(error, client)
 {
 	if (error !== null) 
 	{
-		console.log("authenticate - [" + new Date() + "] " + error);
+		debug("authenticate - [" + new Date() + "] " + error);
 		process.exit(1);
 	}
 
@@ -53,7 +53,7 @@ client.authenticate(function(error, client)
 	watcher.on('add', function(f) 
 	{
 
-		console.log('add', f);
+		debug('add', f);
 
 		addFileToQueue(f);
 	});
@@ -95,7 +95,7 @@ function processQueue(force)
 				// if the mtime is the same then the file has not changed in a minute
 				if (mtime == stat.mtime)
 				{
-					console.log('File written. Lets processes it.');
+					debug('File written. Lets processes it.');
 					clearInterval(intervalTimer);
 
 					client.getAccountInfo(function(err, info, pinfo)
@@ -104,27 +104,27 @@ function processQueue(force)
 						{
 							var free = pinfo.quota_info.quota - pinfo.quota_info.normal;
 
-							console.log('Free Space: ', free);
+							debug('Free Space: ', free);
 
 							var filesize = getFilesizeInBytes(obj.file);
 
-							console.log('File Size:  ', filesize);
+							debug('File Size:  ', filesize);
 
 							if (filesize <= free)
 							{
-								console.log('Uploading: ', obj.file);
+								debug('Uploading: ', obj.file);
 
 								client.writeFile(obj.file, obj.data, function(error, stat) 
 								{
 									if (error !== null) 
 									{
-										console.log("writeFile - [" + new Date() + "] " + error);
+										debug("writeFile - [" + new Date() + "] " + error);
 										
 										processQueue(true);
 									} 
 									else
 									{
-										console.log("Uploaded: ", obj.file);
+										debug("Uploaded: ", obj.file);
 
 										if (fs.existsSync(obj.file))
 										{
@@ -132,12 +132,12 @@ function processQueue(force)
 
 											if (fs.existsSync(obj.file))	
 											{
-												console.log('Unable to delete: ', obj.file);
+												debug('Unable to delete: ', obj.file);
 												process.exit(1);
 											}
 											else
 											{
-												console.log('Deleted: ', obj.file);
+												debug('Deleted: ', obj.file);
 												processQueue(true);
 											}
 										}
@@ -146,20 +146,20 @@ function processQueue(force)
 							}
 							else
 							{
-								console.log('No Dropbox Space Left');
+								debug('No Dropbox Space Left');
 								process.exit(1);
 							}
 						}
 						else
 						{
-							console.log('Dropbox error: ', err);
+							debug('Dropbox error: ', err);
 							processQueue(true);
 						}
 					});
 				}
 				else
 				{
-					console.log('File is still being written. Waiting 5 seconds.');
+					debug('File is still being written. Waiting 10 seconds.');
 					mtime = String(newMTime);
 				}
 
@@ -172,6 +172,11 @@ function processQueue(force)
 
 	}
 
+}
+
+function debug(data)
+{
+	console.log(new Date(), data);
 }
 
 function findFiles(files, f)
@@ -193,14 +198,14 @@ function addFileToQueue(f)
 
 	if (data)
 	{
-		console.log('Pushing file on to queue: ', f);
+		debug('Pushing file on to queue: ', f);
 		processingFiles.push(f);
 		uploadQueue.push({file: f, data: data});
 		processQueue();
 	}
 	else
 	{
-		console.log("readFile - [" + new Date() + "] Error");
+		debug("readFile - [" + new Date() + "] Error");
 		process.exit(1);
 	}
 }
@@ -216,7 +221,7 @@ function processDirectory(dir, callback)
 		{
 			if (f.substr(0,1) == ".") return;
 
-			console.log('Found file: ', f);
+			debug('Found file: ', f);
 
 			addFileToQueue(dir + f);
 		});
