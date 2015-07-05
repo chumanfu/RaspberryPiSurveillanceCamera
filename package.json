@@ -19,6 +19,7 @@
   "dependencies": {
     "watch": "^0.16.0",
     "dropbox": "^0.10.3",
-    "minimist": "^1.1.1"
+    "minimist": "^1.1.1",
+    "chokidar": "^1.0.3"
   }
 }
