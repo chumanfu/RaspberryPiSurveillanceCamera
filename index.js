@@ -10,6 +10,7 @@ var argv = require('minimist')(process.argv.slice(2));
 var watchdir = argv['watchdir'];
 var processing = false;
 var reprocess = false;
+var processingFiles = [];
 
 if(watchdir === undefined) {
   console.log(help);
@@ -68,8 +69,6 @@ function processQueue(force)
 	{
 		processingQueue = false;
 	}
-
-console.log('processingQueue', processingQueue);
 
 	if (!processingQueue)
 	{
@@ -151,6 +150,19 @@ console.log('processingQueue', processingQueue);
 
 }
 
+function findFiles(files, f)
+{
+	for (var i = 0; i < files.length; i++)
+	{
+		if (files[i] == f)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 function processDirectory(dir, callback)
 {
 
@@ -161,11 +173,12 @@ function processDirectory(dir, callback)
 
 	if (files)
 	{
-		// while (files)
-		// {
-			processing = true;
+		processing = true;
 
-			files.forEach(function(f) 
+		files.forEach(function(f) 
+		{
+
+			if (!findFiles(processingFiles, f)
 			{
 				console.log('found file: ', f);
 				if (f.substr(0,1) == ".") return;
@@ -181,16 +194,13 @@ function processDirectory(dir, callback)
 					}
 
 					console.log('Pushing file on to queue: ', f);
+					processingFiles.push(f);
 					uploadQueue.push({file: f, data: data});
 					processQueue();
 
 				});
-			});
-
-			// console.log('Reading directory again');
-			// files = fs.readdirSync(dir);
-		// }
-
+			}
+		});
 	}
 
 	processing = false;
