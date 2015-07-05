@@ -72,23 +72,23 @@ function processQueue(force)
 	if (!processingQueue)
 	{
 		processingQueue = true;
-		var obj = uploadQueue.pop();
+		var f = uploadQueue.pop();
 
-		if (obj)
+		if (f)
 		{
-			if (!fs.existsSync(obj.file))
+			if (!fs.existsSync(f))
 			{
 				processQueue(true);
 				return;
 			}
 
-			var stat = fs.statSync(obj.file);
+			var stat = fs.statSync(f);
 
 			var mtime = String(stat.mtime);
 
 			var intervalTimer = setInterval(function()
 			{
-				stat = fs.statSync(obj.file);
+				stat = fs.statSync(f);
 
 				var newMTime = String(stat.mtime);
 
@@ -106,15 +106,17 @@ function processQueue(force)
 
 							console.log('Free Space: ', free);
 
-							var filesize = getFilesizeInBytes(obj.file);
+							var filesize = getFilesizeInBytes(f);
 
 							console.log('File Size:  ', filesize);
 
 							if (filesize <= free)
 							{
-								console.log('Uploading: ', obj.file);
+								console.log('Uploading: ', f);
 
-								client.writeFile(obj.file, obj.data, function(error, stat) 
+								var data = fs.readFileSync(f);
+
+								client.writeFile(f, data, function(error, stat) 
 								{
 									if (error !== null) 
 									{
@@ -124,15 +126,15 @@ function processQueue(force)
 									} 
 									else
 									{
-										console.log("Uploaded: ", obj.file);
+										console.log("Uploaded: ", f);
 
-										if (fs.existsSync(obj.file))
+										if (fs.existsSync(f))
 										{
-											fs.unlinkSync(obj.file)
+											fs.unlinkSync(f)
 
-											if (fs.existsSync(obj.file))	
+											if (fs.existsSync(f))	
 											{
-												console.log('Unable to delete: ', obj.file);
+												console.log('Unable to delete: ', f);
 												process.exit(1);
 											}
 											else
@@ -159,11 +161,11 @@ function processQueue(force)
 				}
 				else
 				{
-					console.log('File is still being written. Waiting 10 seconds.');
+					console.log('File is still being written. Waiting 60 seconds.');
 					mtime = String(newMTime);
 				}
 
-			}, 10000);
+			}, 60000);
 		}
 		else
 		{
@@ -189,20 +191,9 @@ function findFiles(files, f)
 
 function addFileToQueue(f)
 {
-	var data = fs.readFileSync(f);
-
-	if (data)
-	{
-		console.log('Pushing file on to queue: ', f);
-		processingFiles.push(f);
-		uploadQueue.push({file: f, data: data});
-		processQueue();
-	}
-	else
-	{
-		console.log("readFile - [" + new Date() + "] Error");
-		process.exit(1);
-	}
+	console.log('Pushing file on to queue: ', f);
+	uploadQueue.push(f);
+	processQueue();
 }
 
 function processDirectory(dir, callback)
