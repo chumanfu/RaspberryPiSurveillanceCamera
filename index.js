@@ -78,6 +78,12 @@ console.log('processingQueue', processingQueue);
 
 		if (obj.file)
 		{
+			if (!fs.existsSync(obj.file))
+			{
+				processQueue(true);
+				return;
+			}
+
 			client.getAccountInfo(function(err, info, pinfo)
 			{
 				if (!err)
@@ -107,25 +113,19 @@ console.log('processingQueue', processingQueue);
 								console.log("Uploaded: ", obj.file);
 								console.log(stat);
 
-								fs.exists(obj.file, function(exists)
+								if (fs.existsSync(obj.file))
 								{
-									if (exists)
+									if (!fs.unlinkSync(obj.file)
 									{
-										fs.unlink(obj.file, function(err)
-										{
-											if (err)
-											{
-												console.log('Unable to delete: ', obj.file, err);
-												process.exit(1);
-											}
-											else
-											{
-												console.log('Deleted: ', obj.file);
-												processQueue(true);
-											}
-										});
+										console.log('Unable to delete: ', obj.file, err);
+										process.exit(1);
 									}
-								});
+									else
+									{
+										console.log('Deleted: ', obj.file);
+										processQueue(true);
+									}
+								}
 							}    
 						});
 					}
