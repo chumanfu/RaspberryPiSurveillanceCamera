@@ -56,19 +56,6 @@ client.authenticate(function(error, client)
 		console.log('add', f);
 
 		addFileToQueue(f);
-
-	    // if (!fsTimeout) 
-	    // {
-			// if (f)
-			// {
-				// if (f.substr(0,1) != ".")
-				// {
-					// processDirectory(watchdir);
-				// }
-		    // }
-
-			// fsTimeout = setTimeout(function() { fsTimeout=null }, 5000) // give 5 seconds for multiple events
-		// }
 	});
 });
 
@@ -95,64 +82,88 @@ function processQueue(force)
 				return;
 			}
 
-			client.getAccountInfo(function(err, info, pinfo)
+			var stat = fs.statSync(obj.file);
+
+			var mtime = String(stat.mtime);
+
+			var intervalTimer = setInterval(function()
 			{
-				if (!err)
+				stat = fs.statSync(obj.file);
+
+				var newMTime = String(stat.mtime);
+
+				// if the mtime is the same then the file has not changed in a minute
+				if (mtime == stat.mtime)
 				{
-					var free = pinfo.quota_info.quota - pinfo.quota_info.normal;
+					console.log('File written. Lets processes it.');
+					clearInterval(intervalTimer);
 
-					console.log('Free Space: ', free);
-
-					var filesize = getFilesizeInBytes(obj.file);
-
-					console.log('File Size:  ', filesize);
-
-					if (filesize <= free)
+					client.getAccountInfo(function(err, info, pinfo)
 					{
-						console.log('Uploading: ', obj.file);
-
-						client.writeFile(obj.file, obj.data, function(error, stat) 
+						if (!err)
 						{
-							if (error !== null) 
-							{
-								console.log("writeFile - [" + new Date() + "] " + error);
-								
-								processQueue(true);
-							} 
-							else
-							{
-								console.log("Uploaded: ", obj.file);
+							var free = pinfo.quota_info.quota - pinfo.quota_info.normal;
 
-								if (fs.existsSync(obj.file))
+							console.log('Free Space: ', free);
+
+							var filesize = getFilesizeInBytes(obj.file);
+
+							console.log('File Size:  ', filesize);
+
+							if (filesize <= free)
+							{
+								console.log('Uploading: ', obj.file);
+
+								client.writeFile(obj.file, obj.data, function(error, stat) 
 								{
-									fs.unlinkSync(obj.file)
-
-									if (fs.existsSync(obj.file))	
+									if (error !== null) 
 									{
-										console.log('Unable to delete: ', obj.file);
-										process.exit(1);
-									}
+										console.log("writeFile - [" + new Date() + "] " + error);
+										
+										processQueue(true);
+									} 
 									else
 									{
-										console.log('Deleted: ', obj.file);
-										processQueue(true);
-									}
-								}
-							}    
-						});
-					}
-					else
-					{
-						console.log('No Dropbox Space Left');
-						process.exit(1);
-					}
+										console.log("Uploaded: ", obj.file);
+
+										if (fs.existsSync(obj.file))
+										{
+											fs.unlinkSync(obj.file)
+
+											if (fs.existsSync(obj.file))	
+											{
+												console.log('Unable to delete: ', obj.file);
+												process.exit(1);
+											}
+											else
+											{
+												console.log('Deleted: ', obj.file);
+												processQueue(true);
+											}
+										}
+									}    
+								});
+							}
+							else
+							{
+								console.log('No Dropbox Space Left');
+								process.exit(1);
+							}
+						}
+						else
+						{
+							console.log('Dropbox error: ', err);
+							processQueue(true);
+						}
+					});
 				}
 				else
 				{
-					console.log('Dropbox error: ', err);
-					processQueue(true);
+					console.log('File is still been written.');
+					mtime = String(newMTime);
 				}
-			});
+
+			}, 1000);
 		}
 		else
 		{
@@ -189,42 +200,27 @@ function addFileToQueue(f)
 	}
 	else
 	{
-		console.log("readFile - [" + new Date() + "] " + err);
+		console.log("readFile - [" + new Date() + "] Error");
 		process.exit(1);
 	}
 }
 
 function processDirectory(dir, callback)
 {
-
-	if (processing) return false;
-
 	var files = fs.readdirSync(dir);
 	var filecount = -1;
 
 	if (files)
 	{
-		processing = true;
-
 		files.forEach(function(f) 
 		{
+			if (f.substr(0,1) == ".") return;
 
-			if (!findFiles(processingFiles, f))
-			{
-				console.log('found file: ', f);
-				if (f.substr(0,1) == ".") return;
+			console.log('Found file: ', f);
 
-				// f = dir + f;
-
-				addFileToQueue(dir + f);
-
-			}
+			addFileToQueue(dir + f);
 		});
 	}
-
-	processing = false;
-
-	return true;
 }
 
 function getFilesizeInBytes(filename)
