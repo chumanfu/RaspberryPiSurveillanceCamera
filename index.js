@@ -114,7 +114,7 @@ function processQueue(force)
 
 								if (fs.existsSync(obj.file))
 								{
-									if (!fs.unlinkSync(obj.file)
+									if (!fs.unlinkSync(obj.file))
 									{
 										console.log('Unable to delete: ', obj.file, err);
 										process.exit(1);
@@ -178,7 +178,7 @@ function processDirectory(dir, callback)
 		files.forEach(function(f) 
 		{
 
-			if (!findFiles(processingFiles, f)
+			if (!findFiles(processingFiles, f))
 			{
 				console.log('found file: ', f);
 				if (f.substr(0,1) == ".") return;
