@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
-var watch = require('watch');
+// var watch = require('watch');
 var Dropbox = require("dropbox");
 var fs = require('fs');
 var FlowNoRedirect = require('./auth_driver/flow_no_redirect')
+var chokidar = require('chokidar');
+
 
 var help = "--dropbox-key <key> --dropbox-secret <secret> --watchdir <upload>";
 var argv = require('minimist')(process.argv.slice(2));
@@ -33,7 +35,7 @@ client.authDriver(new FlowNoRedirect());
 
 client.authenticate(function(error, client)
 {
-	if(error !== null) 
+	if (error !== null) 
 	{
 		console.log("authenticate - [" + new Date() + "] " + error);
 		process.exit(1);
@@ -43,20 +45,30 @@ client.authenticate(function(error, client)
 
 	processDirectory(watchdir);
 
-	fs.watch(watchdir, function(event, f) 
+	var watcher = chokidar.watch(watchdir, 
 	{
-	    if (!fsTimeout) 
-	    {
-			if (f)
-			{
-				if (f.substr(0,1) != ".")
-				{
-					processDirectory(watchdir);
-				}
-		    }
+		ignored: /[\/\\]\./, persistent: true
+	});
 
-			fsTimeout = setTimeout(function() { fsTimeout=null }, 5000) // give 5 seconds for multiple events
-		}
+	watcher.on('add', function(f) 
+	{
+
+		console.log('add', f);
+
+		addFileToQueue(f);
+
+	    // if (!fsTimeout) 
+	    // {
+			// if (f)
+			// {
+				// if (f.substr(0,1) != ".")
+				// {
+					// processDirectory(watchdir);
+				// }
+		    // }
+
+			// fsTimeout = setTimeout(function() { fsTimeout=null }, 5000) // give 5 seconds for multiple events
+		// }
 	});
 });
 
@@ -75,7 +87,7 @@ function processQueue(force)
 		processingQueue = true;
 		var obj = uploadQueue.pop();
 
-		if (obj.file)
+		if (obj)
 		{
 			if (!fs.existsSync(obj.file))
 			{
@@ -144,7 +156,7 @@ function processQueue(force)
 		}
 		else
 		{
-			processQueue(true);
+			processingQueue = false;
 		}
 
 	}
@@ -162,6 +174,24 @@ function findFiles(files, f)
 	}
 
 	return false;
+}
+
+function addFileToQueue(f)
+{
+	var data = fs.readFileSync(f);
+
+	if (data)
+	{
+		console.log('Pushing file on to queue: ', f);
+		processingFiles.push(f);
+		uploadQueue.push({file: f, data: data});
+		processQueue();
+	}
+	else
+	{
+		console.log("readFile - [" + new Date() + "] " + err);
+		process.exit(1);
+	}
 }
 
 function processDirectory(dir, callback)
@@ -184,22 +214,10 @@ function processDirectory(dir, callback)
 				console.log('found file: ', f);
 				if (f.substr(0,1) == ".") return;
 
-				f = dir + f;
+				// f = dir + f;
 
-				fs.readFile(f, function(err, data) 
-				{
-					if(err !== null)
-					{
-						console.log("readFile - [" + new Date() + "] " + err);
-						process.exit(1);
-					}
+				addFileToQueue(dir + f);
 
-					console.log('Pushing file on to queue: ', f);
-					processingFiles.push(f);
-					uploadQueue.push({file: f, data: data});
-					processQueue();
-
-				});
 			}
 		});
 	}
