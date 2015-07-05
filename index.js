@@ -163,7 +163,7 @@ function processQueue(force)
 					mtime = String(newMTime);
 				}
 
-			}, 5000);
+			}, 10000);
 		}
 		else
 		{
