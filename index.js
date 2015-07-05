@@ -107,20 +107,20 @@ console.log('processingQueue', processingQueue);
 								console.log("Uploaded: ", obj.file);
 								console.log(stat);
 
-								fs.exists(obj.f, function(exists)
+								fs.exists(obj.file, function(exists)
 								{
 									if (exists)
 									{
-										fs.unlink(obj.f, function(err)
+										fs.unlink(obj.file, function(err)
 										{
 											if (err)
 											{
-												console.log('Unable to delete: ', obj.f, err);
+												console.log('Unable to delete: ', obj.file, err);
 												process.exit(1);
 											}
 											else
 											{
-												console.log('Deleted: ', obj.f);
+												console.log('Deleted: ', obj.file);
 												processQueue(true);
 											}
 										});
