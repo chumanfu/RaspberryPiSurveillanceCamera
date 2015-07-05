@@ -110,13 +110,14 @@ function processQueue(force)
 							else
 							{
 								console.log("Uploaded: ", obj.file);
-								console.log(stat);
 
 								if (fs.existsSync(obj.file))
 								{
-									if (!fs.unlinkSync(obj.file))
+									fs.unlinkSync(obj.file)
+
+									if (fs.existsSync(obj.file))	
 									{
-										console.log('Unable to delete: ', obj.file, err);
+										console.log('Unable to delete: ', obj.file);
 										process.exit(1);
 									}
 									else
