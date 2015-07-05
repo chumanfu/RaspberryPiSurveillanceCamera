@@ -159,11 +159,11 @@ function processQueue(force)
 				}
 				else
 				{
-					console.log('File is still been written.');
+					console.log('File is still being written. Waiting 5 seconds.');
 					mtime = String(newMTime);
 				}
 
-			}, 1000);
+			}, 5000);
 		}
 		else
 		{
