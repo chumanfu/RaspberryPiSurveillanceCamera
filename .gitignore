@@ -3,3 +3,6 @@
 
 capture/
 node_modules/
+accountinfo.js
+
+*.avi
