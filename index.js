@@ -5,30 +5,36 @@ var Dropbox = require("dropbox");
 var fs = require('fs');
 var FlowNoRedirect = require('./auth_driver/flow_no_redirect')
 var chokidar = require('chokidar');
-
+var http = require('http')
 
 var help = "--dropbox-key <key> --dropbox-secret <secret> --watchdir <upload>";
 var argv = require('minimist')(process.argv.slice(2));
 var watchdir = argv['watchdir'];
-var processing = false;
-var reprocess = false;
-var processingFiles = [];
 
-if(watchdir === undefined) {
-  console.log(help);
-  console.log("Error: Set directory to watch");
-  process.exit(1);
+var uploadQueue = [];
+var processingQueue = false;
+
+var htmlOutputQueue = [];
+var processingOutputQueue = false;
+
+if(watchdir === undefined)
+{
+	console.log(help);
+	console.log("Error: Set directory to watch");
+	process.exit(1);
 }
 
-if(argv['dropbox-key'] === undefined || argv['dropbox-secret'] === undefined) {
-  console.log(help);
-  console.log("Error: Set dropbox application details");
-  process.exit(1);
+if(argv['dropbox-key'] === undefined || argv['dropbox-secret'] === undefined)
+{
+	console.log(help);
+	console.log("Error: Set dropbox application details");
+	process.exit(1);
 }
 
-var client = new Dropbox.Client({
-  key: argv['dropbox-key'],
-  secret: argv['dropbox-secret']
+var client = new Dropbox.Client(
+{
+	key: argv['dropbox-key'],
+	secret: argv['dropbox-secret']
 });
 
 client.authDriver(new FlowNoRedirect());
@@ -41,9 +47,78 @@ client.authenticate(function(error, client)
 		process.exit(1);
 	}
 
-	var fsTimeout
+	http.createServer(function(req, response)
+	{
+		var canProcessQueue = true;
 
-	processDirectory(watchdir);
+		htmlOutputQueue.push(startHTML);
+
+		switch (req.url)
+		{
+			case "/dropbox":
+			{
+				canProcessQueue = false;
+
+				htmlOutputQueue.push('<b>Files on Dropbox:</b><br><ul>');
+
+				client.readdir("/", function(error, entries)
+				{
+					if (error)
+					{
+						console.log(error);
+						htmlOutputQueue.push(error);
+					}
+					else
+					{
+						entries.forEach(function(f) 
+						{
+							htmlOutputQueue.push('<li>'+ f + '</li>');
+						});
+					}
+
+					htmlOutputQueue.push('</ul><a href="/queue" />Queue</a><br>');
+					htmlOutputQueue.push('<a href="/" />Home</a><br>');
+
+					htmlOutputQueue.push(endHTML);
+
+					processOutputQueue(false, response);
+				});
+
+				break;
+			}
+			case "/queue":
+			{
+				htmlOutputQueue.push('<b>Files in queue:</b><br><ul>');
+
+				uploadQueue.forEach(function(f) 
+				{
+					htmlOutputQueue.push('<li>'+ f + '</li>');
+				});
+
+				htmlOutputQueue.push('</ul><a href="/dropbox" />Dropbox</a><br>');
+				htmlOutputQueue.push('<a href="/" />Home</a><br>');
+
+				break;
+			}
+			default:
+			{
+				htmlOutputQueue.push('<a href="/queue" />Queue</a><br>');
+				htmlOutputQueue.push('<a href="/dropbox" />Dropbox</a><br>');
+				break;
+			}
+		}
+
+		if (canProcessQueue)
+		{
+			htmlOutputQueue.push(endHTML);
+			processOutputQueue(false, response);
+		}
+
+	}).listen(8082, function()
+	{
+		console.log('HTTP listening on port 8082');
+	});
+
 
 	var watcher = chokidar.watch(watchdir, 
 	{
@@ -52,15 +127,56 @@ client.authenticate(function(error, client)
 
 	watcher.on('add', function(f) 
 	{
-
-		console.log('add', f);
-
 		addFileToQueue(f);
 	});
 });
 
-var uploadQueue = [];
-var processingQueue = false;
+function processOutputQueue(force, response)
+{
+	if (force)
+	{
+		processingOutputQueue = false;
+	}
+
+	if (!processingOutputQueue)
+	{
+		processingQueue = true;
+		
+		var html = htmlOutputQueue.shift();
+
+		if (html)
+		{
+			if (typeof html != "function")
+			{
+				response.write(html);
+			}
+			else
+			{
+				html(response);
+			}
+
+			processOutputQueue(true, response);
+		}
+		else
+		{
+			processingOutputQueue = false;
+		}
+	}
+}
+
+function startHTML(response)
+{
+	response.write('<html>');
+	response.write('<head>');
+	response.write('<title>Raspberry Pi Surveillance Camera</title>');
+	response.write('</head>');
+	response.write('<body>');
+}
+
+function endHTML(response)
+{
+	response.end('</body></html>');
+}
 
 function processQueue(force)
 {
@@ -71,8 +187,11 @@ function processQueue(force)
 
 	if (!processingQueue)
 	{
+		console.log('Processing Queue.');
+
 		processingQueue = true;
-		var f = uploadQueue.pop();
+		
+		var f = uploadQueue.shift();
 
 		if (f)
 		{
@@ -139,7 +258,7 @@ function processQueue(force)
 											}
 											else
 											{
-												console.log('Deleted: ', obj.file);
+												console.log('Deleted: ', f);
 												processQueue(true);
 											}
 										}
@@ -161,11 +280,11 @@ function processQueue(force)
 				}
 				else
 				{
-					console.log('File is still being written. Waiting 60 seconds.');
+					console.log('File is still being written. Waiting 10 seconds.');
 					mtime = String(newMTime);
 				}
 
-			}, 60000);
+			}, 10000);
 		}
 		else
 		{
@@ -176,42 +295,11 @@ function processQueue(force)
 
 }
 
-function findFiles(files, f)
-{
-	for (var i = 0; i < files.length; i++)
-	{
-		if (files[i] == f)
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
 function addFileToQueue(f)
 {
 	console.log('Pushing file on to queue: ', f);
 	uploadQueue.push(f);
 	processQueue();
-}
-
-function processDirectory(dir, callback)
-{
-	var files = fs.readdirSync(dir);
-	var filecount = -1;
-
-	if (files)
-	{
-		files.forEach(function(f) 
-		{
-			if (f.substr(0,1) == ".") return;
-
-			console.log('Found file: ', f);
-
-			addFileToQueue(dir + f);
-		});
-	}
 }
 
 function getFilesizeInBytes(filename)
