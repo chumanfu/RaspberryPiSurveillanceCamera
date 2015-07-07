@@ -59,7 +59,7 @@ client.authenticate(function(error, client)
 		{
 			case "/stream":
 			{
-				htmlOutputQueue('<img src="http://192.168.0.20:8080" /><br>');
+				htmlOutputQueue.push('<img src="http://192.168.0.20:8080" /><br>');
 				htmlOutputQueue.push('<a href="/queue" />Queue</a><br>');
 				htmlOutputQueue.push('<a href="/dropbox" />Dropbox</a><br>');
 				htmlOutputQueue.push('<a href="/" />Home</a><br>');
