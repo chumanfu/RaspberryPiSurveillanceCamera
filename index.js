@@ -61,9 +61,9 @@ client.authenticate(function(error, client)
 			client.makeUrl(queryData.name, {download: true}, function(err, urldata)
 			{
 				console.log(err);
-				console.log(url);
+				console.log(urldata);
 
-				response.writeHead(200, {"Location": urldata.url});
+				response.location(urldata.url)
 				response.end();
 
 			});
