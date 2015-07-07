@@ -37,6 +37,8 @@ var client = new Dropbox.Client(
 	secret: argv['dropbox-secret']
 });
 
+var style = "<style>body{margin: 0px;padding: 0px;}img{width: 100%;height: 100%;}</style>";
+
 client.authDriver(new FlowNoRedirect());
 
 client.authenticate(function(error, client)
@@ -55,6 +57,14 @@ client.authenticate(function(error, client)
 
 		switch (req.url)
 		{
+			case "/stream":
+			{
+				htmlOutputQueue('<img src="http://192.168.0.20:8080" /><br>');
+				htmlOutputQueue.push('<a href="/queue" />Queue</a><br>');
+				htmlOutputQueue.push('<a href="/dropbox" />Dropbox</a><br>');
+				htmlOutputQueue.push('<a href="/" />Home</a><br>');
+				break;
+			}
 			case "/dropbox":
 			{
 				canProcessQueue = false;
@@ -76,7 +86,9 @@ client.authenticate(function(error, client)
 						});
 					}
 
-					htmlOutputQueue.push('</ul><a href="/queue" />Queue</a><br>');
+					htmlOutputQueue.push('</ul>');
+					htmlOutputQueue.push('<a href="/stream" />Stream</a><br>');
+					htmlOutputQueue.push('<a href="/queue" />Queue</a><br>');
 					htmlOutputQueue.push('<a href="/" />Home</a><br>');
 
 					htmlOutputQueue.push(endHTML);
@@ -95,13 +107,16 @@ client.authenticate(function(error, client)
 					htmlOutputQueue.push('<li>'+ f + '</li>');
 				});
 
-				htmlOutputQueue.push('</ul><a href="/dropbox" />Dropbox</a><br>');
+				htmlOutputQueue.push('</ul>');
+				htmlOutputQueue.push('<a href="/stream" />Stream</a><br>');
+				htmlOutputQueue.push('<a href="/dropbox" />Dropbox</a><br>');
 				htmlOutputQueue.push('<a href="/" />Home</a><br>');
 
 				break;
 			}
 			default:
 			{
+				htmlOutputQueue.push('<a href="/stream" />Stream</a><br>');
 				htmlOutputQueue.push('<a href="/queue" />Queue</a><br>');
 				htmlOutputQueue.push('<a href="/dropbox" />Dropbox</a><br>');
 				break;
@@ -169,6 +184,7 @@ function startHTML(response)
 	response.write('<html>');
 	response.write('<head>');
 	response.write('<title>Raspberry Pi Surveillance Camera</title>');
+	response.write(style);
 	response.write('</head>');
 	response.write('<body>');
 }
