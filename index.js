@@ -6,6 +6,7 @@ var fs = require('fs');
 var FlowNoRedirect = require('./auth_driver/flow_no_redirect')
 var chokidar = require('chokidar');
 var http = require('http')
+var url = require('url')
 
 var help = "--dropbox-key <key> --dropbox-secret <secret> --watchdir <upload>";
 var argv = require('minimist')(process.argv.slice(2));
@@ -51,82 +52,93 @@ client.authenticate(function(error, client)
 
 	http.createServer(function(req, response)
 	{
-		var canProcessQueue = true;
-
-		htmlOutputQueue.push(startHTML);
-
-		switch (req.url)
+		if (req.url.indexOf("/data") == 0)
 		{
-			case "/stream":
-			{
-				htmlOutputQueue.push('<img src="http://192.168.0.20:8080" /><br>');
-				htmlOutputQueue.push('<a href="/queue" />Queue</a><br>');
-				htmlOutputQueue.push('<a href="/dropbox" />Dropbox</a><br>');
-				htmlOutputQueue.push('<a href="/" />Home</a><br>');
-				break;
-			}
-			case "/dropbox":
-			{
-				canProcessQueue = false;
+			var queryData = url.parse(req.url, true).query;
 
-				htmlOutputQueue.push('<b>Files on Dropbox:</b><br><ul>');
+			console.log(queryData.name);
 
-				client.readdir("/", function(error, entries)
+		}
+		else
+		{
+			var canProcessQueue = true;
+
+			htmlOutputQueue.push(htmlHead);
+			htmlOutputQueue.push(startHTML);
+
+			switch (req.url)
+			{
+				case "/stream":
 				{
-					if (error)
+					htmlOutputQueue.push('<img src="http://192.168.0.20:8083" /><br>');
+					htmlOutputQueue.push('<a href="/queue" />Queue</a><br>');
+					htmlOutputQueue.push('<a href="/dropbox" />Dropbox</a><br>');
+					htmlOutputQueue.push('<a href="/" />Home</a><br>');
+					break;
+				}
+				case "/dropbox":
+				{
+					canProcessQueue = false;
+
+					htmlOutputQueue.push('<b>Files on Dropbox:</b><br><ul>');
+
+					client.readdir("/", function(error, entries)
 					{
-						console.log(error);
-						htmlOutputQueue.push(error);
-					}
-					else
-					{
-						entries.forEach(function(f) 
+						if (error)
 						{
-							htmlOutputQueue.push('<li>'+ f + '</li>');
-						});
-					}
+							console.log(error);
+							htmlOutputQueue.push(error);
+						}
+						else
+						{
+							entries.forEach(function(f) 
+							{
+								htmlOutputQueue.push('<li><a href="/data?name=f">'+ f + '</a></li>');
+							});
+						}
+
+						htmlOutputQueue.push('</ul>');
+						htmlOutputQueue.push('<a href="/stream" />Stream</a><br>');
+						htmlOutputQueue.push('<a href="/queue" />Queue</a><br>');
+						htmlOutputQueue.push('<a href="/" />Home</a><br>');
+
+						htmlOutputQueue.push(endHTML);
+
+						processOutputQueue(false, response);
+					});
+
+					break;
+				}
+				case "/queue":
+				{
+					htmlOutputQueue.push('<b>Files in queue:</b><br><ul>');
+
+					uploadQueue.forEach(function(f) 
+					{
+						htmlOutputQueue.push('<li>'+ f + '</li>');
+					});
 
 					htmlOutputQueue.push('</ul>');
 					htmlOutputQueue.push('<a href="/stream" />Stream</a><br>');
-					htmlOutputQueue.push('<a href="/queue" />Queue</a><br>');
+					htmlOutputQueue.push('<a href="/dropbox" />Dropbox</a><br>');
 					htmlOutputQueue.push('<a href="/" />Home</a><br>');
 
-					htmlOutputQueue.push(endHTML);
-
-					processOutputQueue(false, response);
-				});
-
-				break;
-			}
-			case "/queue":
-			{
-				htmlOutputQueue.push('<b>Files in queue:</b><br><ul>');
-
-				uploadQueue.forEach(function(f) 
+					break;
+				}
+				default:
 				{
-					htmlOutputQueue.push('<li>'+ f + '</li>');
-				});
-
-				htmlOutputQueue.push('</ul>');
-				htmlOutputQueue.push('<a href="/stream" />Stream</a><br>');
-				htmlOutputQueue.push('<a href="/dropbox" />Dropbox</a><br>');
-				htmlOutputQueue.push('<a href="/" />Home</a><br>');
-
-				break;
+					htmlOutputQueue.push('<a href="/stream" />Stream</a><br>');
+					htmlOutputQueue.push('<a href="/queue" />Queue</a><br>');
+					htmlOutputQueue.push('<a href="/dropbox" />Dropbox</a><br>');
+					break;
+				}
 			}
-			default:
+
+			if (canProcessQueue)
 			{
-				htmlOutputQueue.push('<a href="/stream" />Stream</a><br>');
-				htmlOutputQueue.push('<a href="/queue" />Queue</a><br>');
-				htmlOutputQueue.push('<a href="/dropbox" />Dropbox</a><br>');
-				break;
+				htmlOutputQueue.push(endHTML);
+				processOutputQueue(false, response);
 			}
-		}
-
-		if (canProcessQueue)
-		{
-			htmlOutputQueue.push(endHTML);
-			processOutputQueue(false, response);
 		}
 
 	}).listen(8082, function()
@@ -145,6 +157,11 @@ client.authenticate(function(error, client)
 		addFileToQueue(f);
 	});
 });
+
+function htmlHead(response)
+{
+	response.writeHead(200, {"Content-Type": "text/html"});
+}
 
 function processOutputQueue(force, response)
 {
