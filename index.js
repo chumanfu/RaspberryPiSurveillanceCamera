@@ -58,12 +58,12 @@ client.authenticate(function(error, client)
 
 			console.log(queryData.name);
 
-			client.makeUrl(queryData.name, {download: true}, function(err, url)
+			client.makeUrl(queryData.name, {download: true}, function(err, urldata)
 			{
 				console.log(err);
 				console.log(url);
 
-				response.writeHead(200, {"Location": url});
+				response.writeHead(200, {"Location": urldata.url});
 				response.end();
 
 			});
