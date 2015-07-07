@@ -58,6 +58,16 @@ client.authenticate(function(error, client)
 
 			console.log(queryData.name);
 
+			client.makeUrl(queryData.name, {download: true}, function(err, url)
+			{
+				console.log(err);
+				console.log(url);
+
+				response.writeHead(200, {"Location": url});
+				response.end();
+
+			});
+
 		}
 		else
 		{
@@ -93,7 +103,7 @@ client.authenticate(function(error, client)
 						{
 							entries.forEach(function(f) 
 							{
-								htmlOutputQueue.push('<li><a href="/data?name=f">'+ f + '</a></li>');
+								htmlOutputQueue.push('<li><a href="/data?name=' + f + '">'+ f + '</a></li>');
 							});
 						}
 
